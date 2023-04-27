@@ -6,4 +6,5 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/karalabe/hid v1.0.0
 	github.com/karalabe/usb v0.0.2
+	github.com/sstallion/go-hid v0.13.3
 )

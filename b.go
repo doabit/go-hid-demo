@@ -5,7 +5,8 @@ import (
 	"time"
 
 	// hid "github.com/GeertJohan/go.hid"
-	hid "github.com/karalabe/usb"
+	// hid "github.com/karalabe/usb"
+	hid "github.com/sstallion/go-hid"
 )
 
 // UsbDevice represents a USB device
@@ -79,21 +80,27 @@ func (o *Observer) Subscribe() *Subscription {
 
 	go func() {
 		// api := hid.NewHidApi()
-
-		deviceList, err := hid.EnumerateHid(0x2020, 0x2020)
-		if err != nil {
-			close(rxEvent)
-			return
-		}
-
 		var usbDevices []UsbDevice
-		for _, deviceInfo := range deviceList {
+		err := hid.Enumerate(o.vendorID, o.productID, func(deviceInfo *hid.DeviceInfo) error {
 			usbDevices = append(usbDevices, UsbDevice{
 				Path:      deviceInfo.Path,
 				VendorID:  deviceInfo.VendorID,
 				ProductID: deviceInfo.ProductID,
 			})
+			return nil
+		})
+		if err != nil {
+			close(rxEvent)
+			return
 		}
+
+		// for _, deviceInfo := range deviceList {
+		// 	usbDevices = append(usbDevices, UsbDevice{
+		// 		Path:      deviceInfo.Path,
+		// 		VendorID:  deviceInfo.VendorID,
+		// 		ProductID: deviceInfo.ProductID,
+		// 	})
+		// }
 
 		rxEvent <- Event{Device: UsbDevice{}, Type: Initial}
 
@@ -103,20 +110,27 @@ func (o *Observer) Subscribe() *Subscription {
 		for {
 			select {
 			case <-ticker.C:
-				nextDeviceList, err := hid.EnumerateHid(o.vendorID, o.productID)
-				if err != nil {
-					close(rxEvent)
-					return
-				}
-
 				var nextUsbDevices []UsbDevice
-				for _, deviceInfo := range nextDeviceList {
+				err := hid.Enumerate(o.vendorID, o.productID, func(deviceInfo *hid.DeviceInfo) error {
 					nextUsbDevices = append(nextUsbDevices, UsbDevice{
 						Path:      deviceInfo.Path,
 						VendorID:  deviceInfo.VendorID,
 						ProductID: deviceInfo.ProductID,
 					})
+					return nil
+				})
+				if err != nil {
+					close(rxEvent)
+					return
 				}
+
+				// for _, deviceInfo := range nextDeviceList {
+				// 	nextUsbDevices = append(nextUsbDevices, UsbDevice{
+				// 		Path:      deviceInfo.Path,
+				// 		VendorID:  deviceInfo.VendorID,
+				// 		ProductID: deviceInfo.ProductID,
+				// 	})
+				// }
 
 				for _, device := range usbDevices {
 					if !contains(nextUsbDevices, device) {
