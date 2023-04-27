@@ -5,7 +5,7 @@ import (
 	"time"
 
 	// hid "github.com/GeertJohan/go.hid"
-	"github.com/karalabe/hid"
+	hid "github.com/karalabe/usb"
 )
 
 // UsbDevice represents a USB device
@@ -16,16 +16,25 @@ type UsbDevice struct {
 }
 
 // Event is sent from the Observer
-type Event int
+//
+//	type Event  {
+//		Device UsbDevice
+//	}
+type EventType int
 
 const (
 	// Initial list of devices when polling starts
-	Initial Event = iota
+	Initial EventType = iota
 	// A device that has just been connected
 	Connect
 	// A device that has just disconnected
 	Disconnect
 )
+
+type Event struct {
+	Device UsbDevice
+	Type   EventType
+}
 
 // Subscription is used to receive events from the Observer
 type Subscription struct {
@@ -38,26 +47,28 @@ type Subscription struct {
 // Observer observes USB devices and sends events to subscribers
 type Observer struct {
 	pollInterval time.Duration
-	vendorID     *uint16
-	productID    *uint16
+	vendorID     uint16
+	productID    uint16
 }
 
 // NewObserver creates a new Observer with the given poll interval
-func NewObserver(pollInterval time.Duration) *Observer {
+func NewObserver(vendorID uint16, productID uint16, pollInterval time.Duration) *Observer {
 	return &Observer{
+		vendorID:     vendorID,
+		productID:    productID,
 		pollInterval: pollInterval,
 	}
 }
 
 // WithVendorID filters results by USB Vendor ID
 func (o *Observer) WithVendorID(vendorID uint16) *Observer {
-	o.vendorID = &vendorID
+	o.vendorID = vendorID
 	return o
 }
 
 // WithProductID filters results by USB Product ID
 func (o *Observer) WithProductID(productID uint16) *Observer {
-	o.productID = &productID
+	o.productID = productID
 	return o
 }
 
@@ -69,25 +80,22 @@ func (o *Observer) Subscribe() *Subscription {
 	go func() {
 		// api := hid.NewHidApi()
 
-		deviceList := hid.Enumerate(0x2020, 0x2020)
-		// if err != nil {
-		// 	close(rxEvent)
-		// 	return
-		// }
+		deviceList, err := hid.EnumerateHid(0x2020, 0x2020)
+		if err != nil {
+			close(rxEvent)
+			return
+		}
 
 		var usbDevices []UsbDevice
 		for _, deviceInfo := range deviceList {
-			if (*o.vendorID == deviceInfo.VendorID) &&
-				(*o.productID == deviceInfo.ProductID) {
-				usbDevices = append(usbDevices, UsbDevice{
-					Path:      deviceInfo.Path,
-					VendorID:  deviceInfo.VendorID,
-					ProductID: deviceInfo.ProductID,
-				})
-			}
+			usbDevices = append(usbDevices, UsbDevice{
+				Path:      deviceInfo.Path,
+				VendorID:  deviceInfo.VendorID,
+				ProductID: deviceInfo.ProductID,
+			})
 		}
 
-		rxEvent <- Initial
+		rxEvent <- Event{Device: UsbDevice{}, Type: Initial}
 
 		ticker := time.NewTicker(o.pollInterval)
 		defer ticker.Stop()
@@ -95,35 +103,30 @@ func (o *Observer) Subscribe() *Subscription {
 		for {
 			select {
 			case <-ticker.C:
-				nextDeviceList := hid.Enumerate(uint16(0x2020), uint16(0x2020))
-				// if err != nil {
-				// 	close(rxEvent)
-				// 	return
-				// }
+				nextDeviceList, err := hid.EnumerateHid(o.vendorID, o.productID)
+				if err != nil {
+					close(rxEvent)
+					return
+				}
 
 				var nextUsbDevices []UsbDevice
 				for _, deviceInfo := range nextDeviceList {
-					if (*o.vendorID == deviceInfo.VendorID) &&
-						(*o.productID == deviceInfo.ProductID) {
-						nextUsbDevices = append(nextUsbDevices, UsbDevice{
-							Path:      deviceInfo.Path,
-							VendorID:  deviceInfo.VendorID,
-							ProductID: deviceInfo.ProductID,
-						})
-					}
+					nextUsbDevices = append(nextUsbDevices, UsbDevice{
+						Path:      deviceInfo.Path,
+						VendorID:  deviceInfo.VendorID,
+						ProductID: deviceInfo.ProductID,
+					})
 				}
-
-				fmt.Println("loop", nextUsbDevices)
 
 				for _, device := range usbDevices {
 					if !contains(nextUsbDevices, device) {
-						rxEvent <- Disconnect
+						rxEvent <- Event{Device: device, Type: Disconnect}
 					}
 				}
 
 				for _, device := range nextUsbDevices {
 					if !contains(usbDevices, device) {
-						rxEvent <- Connect
+						rxEvent <- Event{Device: device, Type: Connect}
 					}
 				}
 
@@ -154,25 +157,23 @@ func contains(devices []UsbDevice, device UsbDevice) bool {
 }
 
 func main() {
-	observer := NewObserver(time.Second).
-		WithVendorID(0x2020).
-		WithProductID(0x2020)
+	observer := NewObserver(0x2020, 0x2020, time.Second)
 
 	subscription := observer.Subscribe()
 
 	defer close(subscription.TxClose)
 
 	for event := range subscription.RxEvent {
-		switch event {
+		switch event.Type {
 		case Initial:
 			fmt.Println("intial")
 			break
 			// handle initial list of devices
 		case Connect:
-			fmt.Println("Connect")
+			fmt.Println("Connect", event.Device)
 			break
 		case Disconnect:
-			fmt.Println("Disconnect")
+			fmt.Println("Disconnect", event.Device)
 		}
 	}
 }
