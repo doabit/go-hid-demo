@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	// hid "github.com/GeertJohan/go.hid"
@@ -168,26 +167,4 @@ func contains(devices []UsbDevice, device UsbDevice) bool {
 		}
 	}
 	return false
-}
-
-func main() {
-	observer := NewObserver(0x2020, 0x2020, time.Second)
-
-	subscription := observer.Subscribe()
-
-	defer close(subscription.TxClose)
-
-	for event := range subscription.RxEvent {
-		switch event.Type {
-		case Initial:
-			fmt.Println("intial")
-			break
-			// handle initial list of devices
-		case Connect:
-			fmt.Println("Connect", event.Device)
-			break
-		case Disconnect:
-			fmt.Println("Disconnect", event.Device)
-		}
-	}
 }
