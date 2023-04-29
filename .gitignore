@@ -1,1 +1,4 @@
 wscast_demo
+frontend/dist
+frontend/node_modules
+static/js/websocket_client*

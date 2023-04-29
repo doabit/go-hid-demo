@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,33 +20,43 @@ var (
 )
 
 type Msg struct {
-	Data string `json:"data"`
+	Data   string `json:"data"`
+	Action string `json:"type"`
 }
 
-func mainTest() {
-	http.HandleFunc("/ws", handleWebSocket)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
-	})
-	go sendMsg()
-	http.ListenAndServe(":8080", nil)
+func SendJsonMsg(msg string, action string) {
+	jsonMsg, err := json.Marshal(Msg{Data: msg, Action: action})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	Broadcast(jsonMsg)
 }
 
-func sendMsg() {
+// func mainTest() {
+// 	http.HandleFunc("/ws", HandleWebSocket)
+// 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+// 		http.ServeFile(w, r, "index.html")
+// 	})
+// 	go SendMsg()
+// 	http.ListenAndServe(":8080", nil)
+// }
+
+func SendMsg() {
 	for {
 		time.Sleep(1 * time.Second)
 		fmt.Println("xiao")
-		msg := Msg{Data: "xiaojin"}
+		msg := Msg{Data: "xiaojin", Action: "pop"}
 		msgJson, err := json.Marshal(msg)
 		if err != nil {
 			fmt.Println("ok")
 			return
 		}
-		broadcast(msgJson)
+		Broadcast(msgJson)
 	}
 }
 
-func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -62,11 +73,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			delete(clients, conn)
 			break
 		}
-		broadcast(msg)
+		SendJsonMsg(string(msg), "process")
 	}
 }
 
-func broadcast(msg []byte) {
+func Broadcast(msg []byte) {
 	for conn := range clients {
 		err := conn.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {

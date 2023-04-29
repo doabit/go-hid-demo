@@ -1,0 +1,5 @@
+watch_exts:
+    - .go
+excluded_paths:
+    - frontend
+    - static

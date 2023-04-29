@@ -2,6 +2,8 @@
 
 <head>
     <title>Melody example: chatting</title>
+    <script src="/static/ws.js"></script>
+    <script src="/static/demo.js"></script>
 </head>
 
 <style>
@@ -21,48 +23,6 @@
         <input placeholder="say something" id="text" type="text">
     </center>
 
-    <script>
-        var url = "ws://" + window.location.host + "/ws";
-        var ws = new WebSocket(url);
-        var name = "Guest" + Math.floor(Math.random() * 1000);
-
-        var chat = document.getElementById("chat");
-        var text = document.getElementById("text");
-
-        var now = function () {
-            var iso = new Date().toISOString();
-            return iso.split("T")[1].split(".")[0];
-        };
-
-        ws.onopen = function () {
-            chat.innerText += now() + " Connected to ws server" + "\n";
-        };
-
-        ws.onmessage = function (msg) {
-            try {
-                var pnpData = JSON.parse(msg.data);
-                console.log(pnpData);
-                if (pnpData.data === "1") {
-                    alert("UKEY已被插入");
-                }
-                if (pnpData.data === "-1") {
-                    alert("UKEY已被拨出");
-                }
-            } catch (error) {
-                console.error(error);
-            }
-            // var line =  now() + " " + msg.data + "\n";
-            // chat.innerText += line;
-        };
-
-        text.onkeydown = function (e) {
-            if (e.keyCode === 13 && text.value !== "") {
-                ws.send("<" + name + "> " + text.value);
-                text.value = "";
-            }
-        };
-
-    </script>
 </body>
 
 </html>

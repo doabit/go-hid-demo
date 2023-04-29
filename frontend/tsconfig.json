@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "module": "CommonJS",
+    "lib": ["dom", "es2017"],
+    "noImplicitAny": true,
+    "inlineSourceMap": false,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "outDir": "../static/js/",
+    "sourceMap": true,
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}
